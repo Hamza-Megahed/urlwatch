@@ -16,7 +16,7 @@ urlwatch is intended to help you watch changes in webpages and get notified
 (via e-mail, in your terminal or through various third party services) of any
 changes. The change notification will include the URL that has changed and
 a unified diff of what has changed.
-UPDATE: Adding feature taking a screenshot of the changed websites using [renderTron](https://github.com/GoogleChrome/rendertron)
+UPDATE: Adding feature taking a screenshot of the changed websites using [rendertron](https://github.com/GoogleChrome/rendertron)
 
 DEPENDENCIES
 ------------
@@ -46,7 +46,8 @@ Optional dependencies (install via `python3 -m pip install <packagename>`):
   * "browser" job kind: [requests-html](https://html.python-requests.org)
   * Unit testing: [pycodestyle](http://pycodestyle.pycqa.org/en/latest/)
 
-Installing [renderTron](https://github.com/GoogleChrome/rendertron)
+Installing Rendertron
+------------
 
 `npm install -g rendertron`
 
