@@ -16,6 +16,7 @@ urlwatch is intended to help you watch changes in webpages and get notified
 (via e-mail, in your terminal or through various third party services) of any
 changes. The change notification will include the URL that has changed and
 a unified diff of what has changed.
+
 UPDATE: Adding feature taking a screenshot of the changed websites using [rendertron](https://github.com/GoogleChrome/rendertron)
 
 DEPENDENCIES
