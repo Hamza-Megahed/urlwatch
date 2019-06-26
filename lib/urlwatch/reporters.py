@@ -40,6 +40,7 @@ import sys
 import time
 import cgi
 import functools
+import socket
 
 import requests
 
@@ -65,7 +66,30 @@ logger = logging.getLogger(__name__)
 WDIFF_ADDED_RE = r'[{][+].*?[+][}]'
 WDIFF_REMOVED_RE = r'[\[][-].*?[-][]]'
 
-
+#---------------------------------------------------------------
+def screenshot(urls):
+    # This funnction to take a screenshot of website using rendertron
+    #BASE = 'https://render-tron.appspot.com/screenshot/' online screenshot
+    BASE = 'http://localhost:3000/screenshot/' #local screenshot
+    #url = 'https://facebook.com'
+    if  re.search("http://", urls):
+        path =  "images/"+urls.replace("http://","").replace (".", "-").replace("/","-")+".jpg"#'target.jpg'
+    if  re.search("https://", urls):
+        path =  "images/"+urls.replace("https://","").replace (".", "-").replace("/","-")+".jpg"#'target.jpg'
+    response = requests.get(BASE + urls, stream=True)
+    if response.status_code == 200:
+        with open(path, 'wb') as file:
+            for chunk in response:
+                file.write(chunk)
+#----------------------------------------------------------------
+def send_image(bot_token, imageFile, chat_id, url_name):
+    # This functions to send images via telegram 
+        command = 'curl -s --silent --output /dev/null -X POST https://api.telegram.org/bot' + bot_token + '/sendPhoto -F chat_id=' + chat_id + " -F photo=@" + imageFile
+        subprocess.call(command.split(' '),stderr=subprocess.DEVNULL) #send images and supress output                  
+        command2 = 'curl -s --silent --output /dev/null -X POST https://api.telegram.org/bot' + bot_token + '/sendMessage -d chat_id=' + chat_id + ' -d text=' +url_name
+        subprocess.call(command2.split(' '),stderr=subprocess.DEVNULL) #send url name and supress output
+        return
+#----------------------------------------------------------------
 class ReporterBase(object, metaclass=TrackSubClasses):
     __subclasses__ = {}
 
@@ -275,6 +299,7 @@ class TextReporter(ReporterBase):
                         '%s %s, %s' % (urlwatch.pkgname, urlwatch.__version__, urlwatch.__copyright__),
                         'Website: %s' % (urlwatch.__url__,),
                         'watched %d URLs in %d seconds' % (len(self.job_states), self.duration.seconds))
+        
 
     def _format_content(self, job_state):
         if job_state.verb == 'error':
@@ -372,6 +397,14 @@ class StdoutReporter(TextReporter):
                     print(first, self._red(second))
                 else:
                     print(first, self._blue(second))
+                    a,b = second.split(" ", 2) #split changed line to extract url
+                    try:
+                        screenshot(b.strip("()")) #call screenshot function
+                    except:
+                        print("Make sure RenderTron is running and configured on port 3000")
+                        
+
+                    
             else:
                 print(line)
 
@@ -555,15 +588,45 @@ class TelegramReporter(TextReporter):
                     result = res
 
         return result
-
+        
     def submitToTelegram(self, bot_token, chat_id, text):
+        #------------------------------
+        # check if RenderTron is up on port 3000
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        render_service = sock.connect_ex(('127.0.0.1', 3000))
+        if render_service == 0:
+        #dump output to file       
+            f= open("images/dump", "w")  
+            f.write(text)
+            f.close()
+            #------------------------------
+            
+            #------------------------------
+            # read dumped file to extract image files
+            
+            f= open("images/dump", "r")
+            for lines in f:
+                if re.search("CHANGED:", lines) and re.search("http://", lines):
+                    url_name= lines.split("(")[1].strip(")\n") #url name to send with image
+                    image="images/"+lines.split("(")[1].strip(")\n").strip("http://").replace (".", "-")+".jpg"
+                    send_image(bot_token, image, chat_id,url_name)
+                elif re.search("CHANGED:", lines) and re.search("https://", lines): 
+                    url_name= lines.split("(")[1].strip(")\n") #url name to send with image
+                    image="images/"+lines.split("(")[1].strip(")\n").replace("https://","").replace (".", "-").replace("/","-")+".jpg"
+                    send_image(bot_token, image, chat_id,url_name)
+            f.close()
+                #--------------------------------
+            os.system("rm -rf images/*")  # delete images and dump file
+
         logger.debug("Sending telegram request to chat id:'{0}'".format(chat_id))
         result = requests.post(
             "https://api.telegram.org/bot{0}/sendMessage".format(bot_token),
-            data={"chat_id": chat_id, "text": text, "disable_web_page_preview": "true"})
+            data={"chat_id": chat_id, "text": text, "disable_web_page_preview": "true"})       
         try:
+           
             json_res = result.json()
-
+           
+                          
             if (result.status_code == requests.codes.ok):
                 logger.info("Telegram response: ok '{0}'. {1}".format(json_res['ok'], json_res['result']))
             else:
@@ -571,12 +634,13 @@ class TelegramReporter(TextReporter):
         except ValueError:
             logger.error(
                 "Failed to parse telegram response. HTTP status code: {0}, content: {1}".format(result.status_code,
-                                                                                                result.content))
+                                                                                       result.content))
+
+        
         return result
 
     def chunkstring(self, string, length):
-        return (string[0 + i:length + i] for i in range(0, len(string), length))
-
+        return (string[0 + i:length + i] for i in range(0, len(string), length)) 
 
 class SlackReporter(TextReporter):
     """Custom Slack reporter"""
